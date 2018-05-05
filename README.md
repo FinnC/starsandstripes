@@ -1,4 +1,4 @@
-# Welcome to the Team 4 Star & Stripes repository!
+# Welcome to the Team 4 Stars & Stripes repository!
 ENGR101 Autonomous Vehicle Challenge Project 2018
 
 ![Team 4 Stars & Stripes Flag](https://github.com/dolfinn1212/starsandstripes/blob/master/Team%204%20Star%20%26%20Stripes%20Flag.png)
