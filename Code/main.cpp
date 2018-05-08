@@ -10,21 +10,21 @@ struct Readings{
 
 //Reads the sensor n times and returns the average, max and min reading.
 Readings getAverageMinMaxReading(int number_of_readings){
-	int	   adc_reading     = 0;
-	int    max_reading     = 0;
-	int    min_reading     = 2000;
-	double average_reading = 0;
-	
-	for (int i = 0; i < number_of_readings; i++){
-		adc_reading     = read_analog (0);
+    int    adc_reading     = 0;
+    int    max_reading     = 0;
+    int    min_reading     = 2000;
+    double average_reading = 0;
+    
+    for (int i = 0; i < number_of_readings; i++){
+        adc_reading     = read_analog (0);
         average_reading = (i*average_reading + adc_reading)/(i+1); //calculates average as it goes.
 
-		if (adc_reading > max_reading){
-			max_reading = adc_reading;
-		}
-		if (adc_reading < min_reading){
-			min_reading = adc_reading;
-		}
+        if (adc_reading > max_reading){
+            max_reading = adc_reading;
+        }
+        if (adc_reading < min_reading){
+            min_reading = adc_reading;
+        }
     }
     
     Readings results = {average_reading, max_reading, min_reading};
