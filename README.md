@@ -1,7 +1,7 @@
 # Welcome to the Team 4 Stars & Stripes repository!
 ENGR101 Autonomous Vehicle Challenge Project 2018
 
-![Team 4 Stars & Stripes Flag](https://github.com/dolfinn1212/starsandstripes/blob/master/Team%204%20Star%20%26%20Stripes%20Flag.png)
+![Team 4 Stars & Stripes Flag](https://github.com/dolfinn1212/starsandstripes/blob/master/Other%20files/Team4StarsAndTtripesFlag.png)
 
 Team Members:
 * Charlotte
@@ -11,4 +11,10 @@ Team Members:
 * Thomas
 * Tom
 
-We will post a link to our project schedule and progress reports soon.
+Our project is organized according to the schedule bellow:
+
+[![Project Schedule](https://github.com/dolfinn1212/starsandstripes/blob/master/Other%20files/ProjectSchedule.png)](https://raw.githubusercontent.com/dolfinn1212/starsandstripes/master/Other%20files/ProjectSchedule.png)
+
+**Week 1**
+- Everyone was present to the first lab session of the project.
+- The team met and established communication and organizational channels, set responsibilities and created an action plan.
