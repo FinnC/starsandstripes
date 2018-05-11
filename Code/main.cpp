@@ -2,8 +2,10 @@
 #include <time.h>
 #include "E101.h"
 
-const int MAX_SPEED = 255; //255: Motor uses 100% capacity
-const int MED_SPEED = (int) MAX_SPEED*0.5;
+//According to comments found on documentation, using 255 might
+//cause the h-bridge to get stuck, so don't use this value for MAX_SPEED.
+const int MAX_SPEED = 254; // Motor uses 100% capacity
+const int MED_SPEED = (int) MAX_SPEED*0.5; //
 const int MIN_SPEED = 0; //We may have a use for this or not
 const int F_SENSOR = 0; //Front sensor pin
 const int R_SENSOR = 0; //Right sensor pin
@@ -67,7 +69,7 @@ int main(){
                 set_motor(R_MOTOR,0);
             }
             else
-                // #todo take a picture
+                take_picture();
                 // #todo determine the position of the line
                 
                 set_motor(L_MOTOR,MED_SPEED);
