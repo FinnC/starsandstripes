@@ -19,7 +19,7 @@ const int SPEED     = (int) MAX_SPEED*0.5; //Speed of motors when error is zero.
 const int PIC_WIDTH       = 320;
 const int PIC_HEIGHT      = 240;
 const int Y               = 240/4; //#todo determine a good value for the vertical coord.
-const int MIN_TRACK_WIDTH = 30:  //#todo take pictures with robot to determine best value.
+const int MIN_TRACK_WIDTH = 30;  //#todo take pictures with robot to determine best value.
 const int TRANSVERSAL     = (int)PIC_HEIGHT*0.85; //Mininum number of white pixels that makes a transversal line.
 const int RED             = 0;
 const int GREEN           = 1;
@@ -143,11 +143,11 @@ Errors getErrorFromPicture(int y){
 }
 
 //Follows a white track according to the error provided.
-void followTrack(errors){
+void followTrack(Errors errors){
     //Still need to implement derivative and determine value for KD.
     double derivative = 0;
     
-    double final_error = errors.error1*KP + derivative*KD;
+    double final_error = errors.track1*KP + derivative*KD;
 
     set_motor(L_MOTOR,SPEED+final_error);
     set_motor(R_MOTOR,SPEED-final_error);
@@ -176,12 +176,12 @@ int main(){
                 take_picture(); //Take a picture and loads it to the memory.
                 Errors errors = getErrorFromPicture(Y);
                 
-                if(errors.white_counter1 >= TRANSVERSAL_LINE){
+                if(errors.white_counter1 >= TRANSVERSAL){
                     //Robot is reaching Quadrant 3.
                     //The loop bellow controls the transition between Quadrant 2 and 3.
-                    while(errors.white_counter1 >= TRANSVERSAL_LINE){
+                    while(errors.white_counter1 >= TRANSVERSAL){
                         errors = getErrorFromPicture(0); //Tries to detect a track ahead.
-                        if(errors.white_counter1 < TRANSVERSAL_LINE)
+                        if(errors.white_counter1 < TRANSVERSAL)
                             followTrack(errors);
                         take_picture();
                         errors = getErrorFromPicture(Y);
@@ -198,7 +198,7 @@ int main(){
                     set_motor(L_MOTOR,0);
                     set_motor(R_MOTOR,0);
                     while(errors.white_counter1 < MIN_TRACK_WIDTH){
-                        if(previous_errors.error1 < 0){
+                        if(previous_errors.track1 < 0){
                             //Track was on the left side before it was lost.
                             set_motor(L_MOTOR,-SPEED*0.5);
                             set_motor(R_MOTOR, SPEED*0.5);
