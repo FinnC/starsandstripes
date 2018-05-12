@@ -1,6 +1,5 @@
 main:main.cpp
-gcc -L/usr/lib -o main main.cpp -lE101
-
+	sudo gcc -Wall -L/usr/lib -o main main.cpp -le101
 # Use this file to facilitate the compilation of the code. For it to work, a copy of
 # LibE101.so must be in /usr/lib/ — you can get one here: https://github.com/kaiwhata/ENGR101-2017
 # 
