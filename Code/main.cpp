@@ -151,8 +151,8 @@ void followTrack(Errors errors){
     
     double final_error = errors.track1*KP + derivative*KD;
 
-    set_motor(L_MOTOR,SPEED+final_error);
-    set_motor(R_MOTOR,SPEED-final_error);
+    set_motor(int(L_MOTOR,SPEED+final_error)); //needs to be an int
+    set_motor(int(R_MOTOR,SPEED-final_error));
 }
 
 int main(){
