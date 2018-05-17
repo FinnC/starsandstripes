@@ -2,6 +2,8 @@
 #include <time.h>
 #include "E101.h"
 
+// TEST COMMIT
+
 //Sensors and motor constants
 const int F_SENSOR = 0; //Front sensor pin
 const int L_SENSOR = 0; //Left sensor pin
@@ -149,8 +151,13 @@ void followTrack(Errors errors){
     
     double final_error = errors.track1*KP + derivative*KD;
 
+<<<<<<< HEAD
     set_motor(L_MOTOR,SPEED+(int)final_error);
     set_motor(R_MOTOR,SPEED-(int)final_error);
+=======
+    set_motor(int(L_MOTOR,SPEED+final_error)); //needs to be an int
+    set_motor(int(R_MOTOR,SPEED-final_error));
+>>>>>>> 606a6af0b5a4d4f35bf94d53920d96ede0345f7d
 }
 
 int main(){
