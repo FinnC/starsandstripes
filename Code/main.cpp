@@ -149,7 +149,7 @@ void followTrack(Errors errors){
     
     double final_error = errors.track1*KP + derivative*KD;
 
-    set_motor(L_MOTOR,SPEED+(int)final_error);
+    set_motor(L_MOTOR,SPEED+(int)final_error); //Final speed must be an int.
     set_motor(R_MOTOR,SPEED-(int)final_error);
 }
 
