@@ -3,22 +3,22 @@
 #include "E101.h"
 
 //Sensors and motor constants
-const int F_SENSOR = 0; //Front sensor pin
-const int L_SENSOR = 0; //Left sensor pin
-const int R_SENSOR = 0; //Right sensor pin
-const int L_MOTOR  = 1; //Left motor
-const int R_MOTOR  = 2; //Right motor
+const int F_SENSOR = 6; //Front sensor pin
+const int L_SENSOR = 5; //Left sensor pin
+const int R_SENSOR = 1; //Right sensor pin
+const int L_MOTOR  = 2; //Left motor
+const int R_MOTOR  = 1; //Right motor
 
 //Velocity constants
 /*According to comments found on documentation, using 255 may
   cause the H-bridge to get stuck, so MAX_SPEED is set to 254 instead. */
 const int MAX_SPEED = 254; // Motor uses 100% capacity
-const int SPEED     = (int) MAX_SPEED*0.5; //Speed of motors when error is zero.
+const int SPEED     = (int) MAX_SPEED*0.3; //Speed of motors when error is zero.
 
 //Image processing constants
 const int PIC_WIDTH       = 320;
 const int PIC_HEIGHT      = 240;
-const int Y               = 240/4; //#todo determine a good value for the vertical coord.
+const int Y               = PIC_HEIGHT/4; //#todo determine a good value for the vertical coord.
 const int MIN_TRACK_WIDTH = 30;  //#todo take pictures with robot to determine best value.
 const int TRANSVERSAL     = (int)PIC_HEIGHT*0.85; //Mininum number of white pixels that makes a transversal line.
 const int RED             = 0;
@@ -85,14 +85,14 @@ Errors getErrorFromPicture(int y){
     int    black_counter    = 0;
     double noise_correction = 0; //To account for small number of black pixels inside a track.
     for (int x = 0; x < PIC_WIDTH; x++){
-        int luminosity = get_pixel(x, y, LUM); //Gets luminosity (whiteness) of pixel.
+        int luminosity = get_pixel(y, x, LUM); //Gets luminosity (whiteness) of pixel.
         if (luminosity > LUM_THRESHOLD){
             //Pixel is assumed to be white.
             white_counter[track_number]++;
             error[track_number] += pixel_value;
             if (black_counter > 0){
-                int lum1 = get_pixel(x-1, y, LUM);
-                int lum2 = get_pixel(x-2, y, LUM);
+                int lum1 = get_pixel(y,x-1, LUM);
+                int lum2 = get_pixel(y,x-2, LUM);
                 if(lum1 > LUM_THRESHOLD && lum2 > LUM_THRESHOLD){
                     //Noise detected by the presence of black pixels inside the track
                     //is only incorporated if previous two pictures are also white.
@@ -186,7 +186,7 @@ int main(){
                         take_picture();
                         errors = getErrorFromPicture(Y);
                     }
-                    quad = 3;
+                    quad = 2;
                 }
                 else if(errors.white_counter1 >= MIN_TRACK_WIDTH){
                     //Detected a track; must follow it.
