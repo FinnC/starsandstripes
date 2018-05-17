@@ -149,8 +149,8 @@ void followTrack(Errors errors){
     
     double final_error = errors.track1*KP + derivative*KD;
 
-    set_motor(L_MOTOR,SPEED+final_error);
-    set_motor(R_MOTOR,SPEED-final_error);
+    set_motor(L_MOTOR,SPEED+(int)final_error);
+    set_motor(R_MOTOR,SPEED-(int)final_error);
 }
 
 int main(){
