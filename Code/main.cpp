@@ -14,7 +14,7 @@ const int R_MOTOR  = 1; //Right motor
   cause the H-bridge to get stuck, so MAX_DUTY_CYCLE is set to 254 instead. */
 const int MAX_DUTY_CYCLE  = 254; // Motor uses 100% capacity
 const int MIN_DUTY_CYCLE  = 70;  // Minimum value for which the robot moves. Somewhere between 50 and 76.
-const int BASE_DUTY_CYCLE = (int) MAX_DUTY_CYCLE*0.3; //Duty cycle when error is zero.
+const int BASE_DUTY_CYCLE = (int) MAX_DUTY_CYCLE*0.25; //Duty cycle when error is zero.
 
 //Error calculation constants
 const int KP = BASE_DUTY_CYCLE*0.5; //Remember to ensure BASE_DUTY_CYCLE + KP is less than 254.
@@ -180,13 +180,14 @@ bool isRedLine(){
 }
 
 int main(){
-    int quad = 1; //Flag to signalize change of quadrants.
+    int quad        = 1; //Flag to signalize change of quadrants.
+    int pic_counter = 0;
     Errors previous_errors;
     
     init();
     
-    while(quad == 1 || quad == 2){ //Quadrant 1 and 2
-        
+    while(quad == 1 || quad == 2){
+        //Quadrant 1 and 2
         //Goal: pen gate and follow straight line until Quad 3
         
         int front_reading = readSensor(F_SENSOR, 1).average;
@@ -199,15 +200,21 @@ int main(){
             if (quad == 1){
                 //Code to deal with the gate here.
                 //quad = 2;
+                println("=== QUADRANT 2 ===");
             }
         }
         else {
             take_picture(); //Take a picture and loads it to the memory.
+            pic_counter++;
+            save_picture("q2"+pic_counter);
+            println("Picture number " + pic_counter);
+            
             Errors errors = getErrorFromPicture(ROW);
             
             if(errors.white_counter1 >= TRANSVERSAL){
                 //Robot is reaching Quadrant 3.
                 //The loop bellow controls the transition between Quadrant 2 and 3.
+                println("Found transversal line.");
                 while(errors.white_counter1 >= TRANSVERSAL){
                     errors = getErrorFromPicture(0); //Tries to detect a track ahead.
                     if(errors.white_counter1 < TRANSVERSAL)
@@ -219,21 +226,25 @@ int main(){
             }
             else if(errors.white_counter1 >= MIN_TRACK_WIDTH){
                 //Detected a track; must follow it.
+                println("Following a single line.");
                 followTrack(errors);
                 previous_errors = errors;
             }
             else { //errors.white_counter1 < MIN_TRACK_WIDTH
                 //Lost track; must use data from previous picture to find it.
+                println("Track lost!");
                 set_motor(L_MOTOR,0);
                 set_motor(R_MOTOR,0);
                 while(errors.white_counter1 < MIN_TRACK_WIDTH){
                     if(previous_errors.track1 < 0){
                         //Track was on the left side before it was lost.
+                        println("Last track was on the left side.")
                         set_motor(L_MOTOR,-BASE_DUTY_CYCLE*0.5);
                         set_motor(R_MOTOR, BASE_DUTY_CYCLE*0.5);
                     }
                     else {    
                         //Track was on the right side before it was lost.
+                        println("Last track was on the right side.")
                         set_motor(L_MOTOR, BASE_DUTY_CYCLE*0.5);
                         set_motor(R_MOTOR,-BASE_DUTY_CYCLE*0.5);
                     }
@@ -241,15 +252,17 @@ int main(){
                     errors = getErrorFromPicture(ROW);
                 }
                 //Back on track!
+                println("Found track!")
                 followTrack(errors);
                 previous_errors = errors;
             }
         }
     }
         
-    while(quad == 3){ //Quadrant 3
-        
+    while(quad == 3){
+        //Quadrant 3
         //Goal: pass through the line maze.
+        println("=== QUADRANT 3 ===");
         
         int front_reading = readSensor(F_SENSOR, 1).average;
         
@@ -260,10 +273,13 @@ int main(){
         }
         else {
             take_picture(); //Take a picture and loads it to the memory.
+            pic_counter++;
+            save_picture("q3"+pic_counter);
             
             if (isRedLine()){
                 //Robot is reaching Quadrant 4.
                 //The loop bellow controls the transition between Quadrant 3 and 4.
+                println("Found red line");
                 /*
                 read left and right sensors
                 while(no walls detected){
@@ -279,12 +295,16 @@ int main(){
                 if(errors.white_counter1 >= TRANSVERSAL){
                     //The best option in this case is always to take the path of the left
                     //The error is set to its maximum negative magnitude.
+                    //Method 1
+                    println("Found a transversal");
                     errors.track1 = -PIC_WIDTH/2.0;
                     followTrack(errors);
                     previous_errors = errors;
-                    /* Another idea for dealing with transversal tracks
+                    
+                    // Method 2
                     while(errors.white_counter1 > MIN_TRACK_WIDTH){
                         //Keep advancing until track disappears
+                        println("Advancing until track disappears.");
                         errors = getErrorFromPicture(ROW);
                     }
                     //Stop after track disappears
@@ -292,25 +312,30 @@ int main(){
                     set_motor(R_MOTOR,0);
                     while(Math.abs(errors.track1) > PIC_WIDTH/4){
                         //Turns the robot left until the track is positioned in the central area of the picture
+                        println("Turning until track is centered.");
                         set_motor(L_MOTOR,-BASE_DUTY_CYCLE*0.5);
                         set_motor(R_MOTOR, BASE_DUTY_CYCLE*0.5);
                         errors = getErrorFromPicture(ROW);
                     }
                     //Start following the track again after it is centralized.
+                    println("Track is centered. Started following it.");
                     followTrack(errors);
                     previous_errors = errors;
-                    */
+
                 }
                 else if(errors.white_counter1 >= PASSAGE && errors.track1 < 0){
                     //Robot found a passage to the left.
+                    println("Found a passage to the left.");
                     errors = getErrorFromPicture(0); //Tries to detect a track ahead.
                     if(errors.white_counter1 >= MIN_TRACK_WIDTH){
                         //If the track continues past the passage, follow the track.
+                        println("But found a track ahead, ignoring passage.");
                         followTrack(errors);
                         previous_errors = errors;
                     }
                     else{
                         //It is a sharp turn to the left. The error is set to its maximum negative magnitude.
+                        println("It is a sharp turn tot he left.");
                         errors.track1 = -PIC_WIDTH/2.0;
                         followTrack(errors);
                         previous_errors = errors;
@@ -318,36 +343,43 @@ int main(){
                 }
                 else if(errors.white_counter1 >= PASSAGE && errors.track1 >= 0){
                     //Robot found a passage to the right.
+                    println("Found a passage to the right.");
                     errors = getErrorFromPicture(0); //Tries to detect a track ahead.
                     if(errors.white_counter1 >= MIN_TRACK_WIDTH){
                         //If the track continues past the passage, follow the track.
+                        println("But found a track ahead, ignoring passage. THIS SHOULDN'T HAPPEN!");
                         followTrack(errors);
                         previous_errors = errors;
                     }
                     else{
                         //It is a sharp turn to the right. The error is set to its maximum positive magnitude.
+                        println("It is a sharp turn tot he right.");
                         errors.track1 = PIC_WIDTH/2.0;
                         followTrack(errors);
                         previous_errors = errors;
                     }
                 }
                 else if(errors.white_counter1 >= MIN_TRACK_WIDTH){
+                    println("Following a single track with no passages.");
                     //Detected a track with no passages; must follow it.
                     followTrack(errors);
                     previous_errors = errors;
                 }
                 else { //errors.white_counter1 < MIN_TRACK_WIDTH
                     //Lost track; must use data from previous picture to find it.
+                    println("Lost track!");
                     set_motor(L_MOTOR,0);
                     set_motor(R_MOTOR,0);
                     while(errors.white_counter1 < MIN_TRACK_WIDTH){
                         if(previous_errors.track1 < 0){
                             //Track was on the left side before it was lost.
+                            println("Last track was on the left before lost.");
                             set_motor(L_MOTOR,-BASE_DUTY_CYCLE*0.5);
                             set_motor(R_MOTOR, BASE_DUTY_CYCLE*0.5);
                         }
                         else {    
                             //Track was on the right side before it was lost.
+                            println("Last track was on the right before lost.");
                             set_motor(L_MOTOR, BASE_DUTY_CYCLE*0.5);
                             set_motor(R_MOTOR,-BASE_DUTY_CYCLE*0.5);
                         }
@@ -355,6 +387,7 @@ int main(){
                         errors = getErrorFromPicture(ROW);
                     }
                     //Back on track!
+                    println("Found track!");
                     followTrack(errors);
                     previous_errors = errors;
                 }
@@ -362,9 +395,10 @@ int main(){
         }
     }
     
-    while(quad == 4){//Quadrant 4
-        
+    while(quad == 4){
+        //Quadrant 4
         //Goal: pass through the walled maze.
+        println("=== QUADRANT 4 ===");
         quad = 0;
     }
     
