@@ -10,7 +10,7 @@ int main (){
 		adc_reading_right = read_analog(1);
 		adc_reading_left = read_analog(5);
 		adc_reading_front = read_analog(6);
-		printf("%n \t %n \t %n", adc_reading_left, adc_reading_front, adc_reading_right);
+		printf("%d \t %d \t %d", adc_reading_left, adc_reading_front, adc_reading_right);
 		sleep1(0, 10000)
 
 	}
