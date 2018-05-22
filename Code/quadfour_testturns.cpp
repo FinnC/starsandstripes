@@ -18,21 +18,27 @@ int main(){ //Probably needs the < & > signs flipped
         int left_reading = readSensor(L_SENSOR, 1).average;
         int right_reading = readSensor(R_SENSOR, 1).average;
         if (front_reading>MIN_DISTANCE){//if there is a wall try an go right, if not left
+		set_motor(R_MOTOR, 0);
+		set_motor(L_MOTOR, 0);
+            	if(right_reading>front_reading*MULTIPLIER){//Look Right
+			set_motor(R_MOTOR, -100);
+			set_motor(L_MOTOR, 100); 
+			sleep1(TURNTIME_SEC,TURNTIME_MICRO); 
 			set_motor(R_MOTOR, 0);
 			set_motor(L_MOTOR, 0);
-            if(right_reading>front_reading*MULTIPLIER){//Look Right
-				set_motor(R_MOTOR, -100);
-				set_motor(L_MOTOR, 100); 
-				sleep1(TURNTIME_SEC,TURNTIME_MICRO); 
-				set_motor(R_MOTOR, 0);
-				set_motor(L_MOTOR, 0);
-            }else if(left_reading>front_reading*MULTIPLIER){//Look Left
-				set_motor(R_MOTOR, 100);
-				set_motor(L_MOTOR, -100); 
-				sleep1(TURNTIME_SEC,TURNTIME_MICRO); 
-				set_motor(R_MOTOR, 0);
-				set_motor(L_MOTOR, 0);
-			}
+         	}else if(left_reading>front_reading*MULTIPLIER){//Look Left
+			set_motor(R_MOTOR, 100);
+			set_motor(L_MOTOR, -100); 
+			sleep1(TURNTIME_SEC,TURNTIME_MICRO); 
+			set_motor(R_MOTOR, 0);
+			set_motor(L_MOTOR, 0);
+		} else{//180 degree turn for a dead end
+			set_motor(R_MOTOR, 100);
+			set_motor(L_MOTOR, -100); 
+			sleep1(TURNTIME_SEC*2,TURNTIME_MICRO*2); 
+			set_motor(R_MOTOR, 0);
+			set_motor(L_MOTOR, 0);
+		}
         }
         quad = 0;
     }
