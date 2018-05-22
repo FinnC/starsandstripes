@@ -199,6 +199,11 @@ int main(){
             set_motor(R_MOTOR,0);
             if (quad == 1){
                 //Code to deal with the gate here.
+                char message = "Please"; 
+                int connect_to_server(130.195.6.196[15], 1024); 
+                int send_to_server(message[24]);
+                int recieve_from_server(message[24]);
+                int send_to_server(message[24]);
                 //quad = 2;
                 println("=== QUADRANT 2 ===");
             }
