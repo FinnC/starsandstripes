@@ -185,8 +185,8 @@ int main(){
     
     init();
     
-    while(quad == 1 || quad == 2){
-        //Quadrant 1 and 2
+    while(quad == 1 || quad == 2){ //Quadrant 1 and 2
+        
         //Goal: pen gate and follow straight line until Quad 3
         
         int front_reading = readSensor(F_SENSOR, 1).average;
@@ -247,8 +247,8 @@ int main(){
         }
     }
         
-    while(quad == 3){
-        //Quadrant 3
+    while(quad == 3){ //Quadrant 3
+        
         //Goal: pass through the line maze.
         
         int front_reading = readSensor(F_SENSOR, 1).average;
@@ -362,8 +362,8 @@ int main(){
         }
     }
     
-    while(quad == 4){
-        //Quadrant 4
+    while(quad == 4){//Quadrant 4
+        
         //Goal: pass through the walled maze.
         quad = 0;
     }
