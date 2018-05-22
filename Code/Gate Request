@@ -1,0 +1,19 @@
++ 
+
+
++char password = ""; 
+
+
++connect_to_server(130.195.6.196, 1024); 
+
+
++send_to_server("Please"); 
+
+
++recieve_from_server(""); 
+
+
++password = ""; 
+
+
++send_to_server(password); 
