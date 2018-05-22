@@ -17,7 +17,7 @@ int main(){ //Probably needs the < & > signs flipped
         int front_reading = readSensor(F_SENSOR, 1).average;
         int left_reading = readSensor(L_SENSOR, 1).average;
         int right_reading = readSensor(R_SENSOR, 1).average;
-        if (front_reading>MIN_DISTANCE){//if there is a wall
+        if (front_reading>MIN_DISTANCE){//if there is a wall try an go right, if not left
 			set_motor(R_MOTOR, 0);
 			set_motor(L_MOTOR, 0);
             if(right_reading>front_reading*MULTIPLIER){//Look Right
