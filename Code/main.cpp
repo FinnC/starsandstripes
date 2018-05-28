@@ -47,10 +47,10 @@ const int MIN_RED_COUNTER = 60; //Number of reddish pixels a line must have to b
 const int MIN_DISTANCE  = 250; //#todo Test and find a minimum distance to avoid collisions on quads 1 to 3.
 
 //Network constants
-char PLEASE[]  = "Please";
-char IP[]      = "130.195.6.196";
-int  PORT      = 1024;
-int  GATE_TIME = 3; //Seconds
+char PLEASE[]   = "Please";
+char IP[]       = "130.195.6.196";
+int  PORT       = 1024;
+int  GATE_TIMER = 1500000; //Microseconds
 
 //Quad 4 constants
 const int TURNTIME_SEC   = 1;
@@ -259,7 +259,7 @@ int main(){
                 receive_from_server(message);
                 send_to_server(message);
                 quad = 2;
-                usleep(1500000);
+                usleep(GATE_TIMER);
             }
         }
         else {
