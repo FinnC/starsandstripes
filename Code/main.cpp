@@ -6,7 +6,7 @@
 //Sensors and motor constants
 const int F_SENSOR = 6; //Front sensor pin
 const int L_SENSOR = 5; //Left sensor pin
-const int R_SENSOR = 1; //Right sensor pin
+const int R_SENSOR = 0; //Right sensor pin
 const int L_MOTOR  = 2; //Left motor
 const int R_MOTOR  = 1; //Right motor
 
