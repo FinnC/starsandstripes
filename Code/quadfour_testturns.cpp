@@ -4,7 +4,7 @@
 
 const int F_SENSOR = 6; //Front sensor pin
 const int L_SENSOR = 5; //Left sensor pin
-const int R_SENSOR = 1; //Right sensor pin
+const int R_SENSOR = 0; //Right sensor pin
 const int L_MOTOR  = 2; //Left motor
 const int R_MOTOR  = 1; //Right 
 const int MIN_DISTANCE = 400; //#todo Test and find a minimum distance to avoid collisions on quads 1 to 3.
@@ -46,7 +46,7 @@ int main(){ //Probably needs the < & > signs flipped
 
 int quad4eq(){
 	const int L_SENSOR = 5; //Left sensor pin
-	const int R_SENSOR = 1; //Right sensor pin
+	const int R_SENSOR = 0; //Right sensor pin
 	const int L_MOTOR  = 2; //Left motor
 	const int R_MOTOR  = 1; //Right motor
 	int sensor_IR_readingL = 0; //left sensor reading
