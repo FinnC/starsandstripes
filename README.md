@@ -34,3 +34,18 @@ Our project is organized according to the schedule bellow:
 - The team started working on the progress report.
 - The deadline to have the code for the 3rd quadrant ready was postponed to the next week.
 - Everyone except Tom was present to the third lab session of the project.
+
+**Week 4**
+- Charlotte and Tom finished publishing the data that was required for each one to write their own progress report.
+- Tom published the code for quadrant 3 and started debugging it.
+- The robot completed the quadrant 3 in 80% of the tests—the code still has bugs.
+- Thomas wrote a code to test the measures made by the sensors.
+- Charlotte fixed a problem with the right sensor and changed the position of the camera—it was too low before.
+- Matthew and Tom started working on the code for quadrant 4.
+
+**Week 5**
+- Charlotte placed a switch on the robot and reassembled it to improve its design.
+- Riley tested the code that opens the first gate and it works.
+- The code for quadrant 3 still has bugs, but since it completes the course most of the times and the deadline is too close, we decided to leave it as it is to focus on quadrant 4.
+- Tom published different algorithms to deal with the quadrant 4.
+- Finn, Matthew and Tom started testing the different algorithms for Q4.
