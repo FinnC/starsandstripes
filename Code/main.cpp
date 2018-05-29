@@ -58,7 +58,7 @@ char       PLEASE[]       = "Please";        //If set to "const", the compiler w
 char       IP[]           = "130.195.6.196"; //If set to "const", the compiler will complain...
 const int  PORT           = 1024;
 const int  GATE_TIMER     = 1500000; //Microseconds
-const int  GATE2_DISTANCE = 180; //#todo find out what value to use.
+const int  GATE2_DISTANCE = 200; //#todo find out what value to use.
 
 //Fields
 int    lum_threshold;
