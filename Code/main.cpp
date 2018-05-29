@@ -4,6 +4,8 @@
 #include <time.h>
 #include "E101.h"
 
+const int INITIAL_QUADRANT = 4; //Use this to skip quadrants when testing.
+
 //Sensors and motor constants
 const int F_SENSOR = 6; //Front sensor pin
 const int L_SENSOR = 5; //Left sensor pin
@@ -15,18 +17,20 @@ const int R_MOTOR  = 1; //Right motor
 /*According to comments found on documentation, using 255 may
   cause the H-bridge to get stuck, so MAX_DUTY_CYCLE is set to 254 instead. */
 const int MAX_DUTY_CYCLE  = 254; // Motor uses 100% capacity
-const int MIN_DUTY_CYCLE  = 35;  // Actually might be even lower than that.
-const int BASE_DUTY_CYCLE = 40; //Duty cycle when error is zero.
+const int MIN_DUTY_CYCLE  = 30;  // Actually might be even lower than that.
+const int BASE_DUTY_CYCLE = 40;  //Duty cycle when error is zero.
 
 //Error calculation constants
-const int KP = 50*0.6; //BASE_DUTY_CYCLE + KP cannot go past 254.
-const int KD = 0;
+const int KP   = 30; //BASE_DUTY_CYCLE + KP cannot go past 254.
+const int KD   = 0;
+const int KPQ4 = 12;
+const int KDQ4 = 0;
 
 //Image processing constants
 const int PIC_WIDTH       = 320;
 const int PIC_HEIGHT      = 240;
-const int ROW             = PIC_HEIGHT-50; //For PIC_HEIGHT-1, camera cannot be in angle that is too low.
-const int ROW_AHEAD       = 50; //Used when we need to scan a row ahead of the ROW value.
+const int ROW             = PIC_HEIGHT-50;
+const int ROW_AHEAD       = 50;  //Used when we need to scan a row ahead of the ROW value.
 const int MIN_H_TRACK_WID = 30;  //Mininum number of white pixels for a track in a horizontal scan.
 const int MIN_V_TRACK_WID = 35;  //Mininum number of white pixels for a track in a vertical scan.
 const int TRANSVERSAL     = 290; //Mininum number of white pixels for a transversal line.
@@ -35,29 +39,28 @@ const int RED             = 0;
 const int GREEN           = 1;
 const int BLUE            = 2;
 const int LUM             = 3;   //Luminosity = (red value + green value + blue value)/3
-const int BASE_LUM_THRESH = 95;
-const bool AUTO_THRESHOLD = false; //Calculates luminosity threshold automatically before starting.
+const int BASE_LUM_THRESH = 105;
+const bool AUTO_THRESHOLD = false; //If true, calculates luminosity threshold automatically before starting.
 const int MAX_BLK_NOISE   = 5;   //Max. number of consecutive black pixels inside a track.
-const int RED_THRESHOLD   = 230; //Value for which the component of a pixel will be considered red.
-const int GREEN_THRESHOLD = 200; //Value for which the component of a pixel will be considered green.
-const int BLUE_THRESHOLD  = 200; //Value for which the component of a pixel will be considered blue.
-const int MIN_RED_COUNTER = 60; //Number of reddish pixels a line must have to be considered red.
+const int RED_THRESHOLD   = 135; //Value for which the component of a pixel will be considered red.
+const int GREEN_THRESHOLD = 100; //Value for which the component of a pixel will be considered green.
+const int BLUE_THRESHOLD  = 100; //Value for which the component of a pixel will be considered blue. 
+const int MIN_RED_COUNTER = 70;  //Number of reddish pixels a line must have to be considered red.
 
 //Distance control constants
-const int MIN_DISTANCE  = 250; //#todo Test and find a minimum distance to avoid collisions on quads 1 to 3.
+const int MIN_DISTANCE  = 210; //#todo Test and find a minimum distance to use in Q4. 250 is approx. 10cm.
 
-//Network constants
-char PLEASE[]   = "Please";
-char IP[]       = "130.195.6.196";
-int  PORT       = 1024;
-int  GATE_TIMER = 1500000; //Microseconds
-
-//Quad 4 constants
-const int TURNTIME_SEC   = 1;
-const int TURNTIME_MICRO = 500000;
+//Gates and Network constants
+char       PLEASE[]       = "Please";        //If set to "const", the compiler will complain...
+char       IP[]           = "130.195.6.196"; //If set to "const", the compiler will complain...
+const int  PORT           = 1024;
+const int  GATE_TIMER     = 1500000; //Microseconds
+const int  GATE2_DISTANCE = 160; //#todo find out what value to use.
 
 //Fields
-int lum_threshold;
+int    lum_threshold;
+long   previous_time;  //Used to calculate Kd.
+double previous_error; //Used to calculate Kd.
 
 //Structure to store error data about tracks after image analysis. 
 struct ImageData{
@@ -94,8 +97,26 @@ void setLumThreshold(){
     }
 }
 
-//Reads the given sensor a number of times and returns the average, max and min reading.
-Readings readSensor(int sensor, int number_of_readings){
+//Reads left digital sensor and returns true if an obstacle is close.
+bool leftWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(L_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
+
+//Reads right digital sensor and returns true if an obstacle is close.
+bool rightWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(R_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
+
+//Reads the given analog sensor a number of times and returns the average, max and min reading.
+Readings readAnalogSensor(int sensor, int number_of_readings){
     //Use F_SENSOR, L_SENSOR or R_SENSOR for sensor.
     //number_of_readings = 0, no reading is done at all
     //number_of_readings = 1, just one reading, i.e., no average
@@ -201,17 +222,6 @@ int verticalWhitePix(int x){
     return v_white_counter;
 }
 
-//Follows a white track according to the error provided.
-void followTrack(ImageData image_data){
-    //Still need to implement derivative and determine value for KD.
-    double error_percentage      = image_data.error1/(PIC_WIDTH/2.0);
-    double derivative            = 0;
-    double duty_cycle_correction = error_percentage*KP + derivative*KD;
-
-    set_motor(L_MOTOR,BASE_DUTY_CYCLE+(int)duty_cycle_correction); //Final duty cycle must be an int.
-    set_motor(R_MOTOR,BASE_DUTY_CYCLE-(int)duty_cycle_correction);
-}
-
 //Checks if there is a red line in the picture.
 bool isRedLine(){
     bool result      = false;
@@ -230,23 +240,56 @@ bool isRedLine(){
     return result;
 }
 
+//Follows a white track according to the error provided.
+void followTrack(ImageData image_data){
+    //Still need to implement derivative and determine value for KD.
+    double error_percentage      = image_data.error1/(PIC_WIDTH/2.0);
+    double derivative            = 0;
+    double duty_cycle_correction = error_percentage*KP + derivative*KD;
+
+    set_motor(L_MOTOR,BASE_DUTY_CYCLE+(int)duty_cycle_correction); //Final duty cycle must be an int.
+    set_motor(R_MOTOR,BASE_DUTY_CYCLE-(int)duty_cycle_correction);
+}
+
+//Controls the position of the robot in the walled maze.
+void q4Control(double current_state){
+    //Still need to implement derivative and determine value for KD.
+    //current_state values:
+    //    -100 <= current_state  < 0    Robot is far from left wall.
+    //            current_state == 0    Robot is in the middle of the path.
+    //       0 <  current_state <= 100  Robot is far from right wall.
+    
+    double error_percentage = current_state/100.0;
+    
+    //long   time             = get current time...
+    double error_variation  = 1.0;//*(error_percentage - previous_error)/(time - previous_time);
+    //previous_time           = time;
+    //previous_error          = error
+    
+    double duty_cycle_correction = error_percentage*KPQ4 + error_variation*KDQ4;
+
+    set_motor(L_MOTOR,BASE_DUTY_CYCLE+(int)duty_cycle_correction); //Final duty cycle must be an int.
+    set_motor(R_MOTOR,BASE_DUTY_CYCLE-(int)duty_cycle_correction);
+}
+
 //==== Main =======================================================================================
 int main(){
-    int quad = 1; //Flag to change quadrants.
-    int front_reading;
-    int right_reading;
-    int left_reading;
+    int       quad = INITIAL_QUADRANT; //Flag to change quadrants.
+    int       front_reading;
     ImageData h_data;
     ImageData previous_h_data;
     
     init();
+    select_IO(L_SENSOR, 1); //Sets digital sensor channel to input mode.
+    select_IO(R_SENSOR, 1);
+    
     setLumThreshold();
 
     //==== QUADRANT 1&2 ===========================================================================
     while(quad == 1 || quad == 2){
         //Quadrant 1 and 2
         //Goal: open gate and follow single track until Quad 3
-        front_reading = readSensor(F_SENSOR, 1).average;
+        front_reading = readAnalogSensor(F_SENSOR, 1).average;
         
         if (front_reading>MIN_DISTANCE || quad == 1){
             //Avoid collisions.
@@ -327,9 +370,10 @@ int main(){
     }
     
     //==== QUADRANT 3 =============================================================================
+    bool red_line;
     while(quad == 3){
         //Goal: finish the maze of white tracks.
-        front_reading = readSensor(F_SENSOR, 1).average;
+        front_reading = readAnalogSensor(F_SENSOR, 1).average;
         
         if (front_reading>MIN_DISTANCE){
             //Avoid collisions.
@@ -339,154 +383,160 @@ int main(){
         else {
             take_picture(); //Take a picture and loads it to the memory.
             
-            if (isRedLine()){
+            red_line = isRedLine();
+            if (red_line && (leftWall() || rightWall())){
                 //Robot is reaching Quadrant 4.
-                //The loop bellow controls the transition between Quadrant 3 and 4.
-                right_reading = readSensor(R_SENSOR, 1).average;
-                left_reading  = readSensor(L_SENSOR, 1).average;
-
-                //Calculate first error, then change to quad4
-                //<Code here>
-                
+                while(red_line){
+                    //Wait for it to cross the red line before switching to quad 4 loop.
+                    if (leftWall() && rightWall())
+                        q4Control(0);
+                    else if (leftWall() && !rightWall())
+                        q4Control(50);
+                    else if (!leftWall() && rightWall())
+                        q4Control(-50);
+                    else
+                        q4Control(0);
+                    red_line = isRedLine();
+                }
                 quad = 4;
+                break;
             }
-            else {
-                h_data = getHorizontalData(ROW);
+            
+            h_data = getHorizontalData(ROW);
+            
+            if(h_data.total_white_pixels >= TRANSVERSAL){
+                //This is a transversal track
+                //The best option in this case is always to take the path to the left
                 
-                if(h_data.total_white_pixels >= TRANSVERSAL){
-                    //This is a transversal track
-                    //The best option in this case is always to take the path to the left
-                    
-                    while(h_data.white_pixels1 >= TRANSVERSAL){
-                        //Advances until losing sight of transversal.
-                        set_motor(L_MOTOR,(int)BASE_DUTY_CYCLE*0.8);
-                        set_motor(R_MOTOR,(int)BASE_DUTY_CYCLE*0.8);
-                        take_picture();
-                        h_data = getHorizontalData(ROW);
-                        previous_h_data = h_data;
-                    }
-                    
-                    //Tries to get track slightly ahead.
-                    h_data = getHorizontalData(ROW-30);
-                    while(h_data.white_pixels1 < MIN_H_TRACK_WID){
-                        //Turns left until finding a new track
-                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                        take_picture();
-                        h_data = getHorizontalData(ROW-30);
-                        usleep(100000);
-                    }
+                while(h_data.white_pixels1 >= TRANSVERSAL){
+                    //Advances until losing sight of transversal.
+                    set_motor(L_MOTOR,(int)BASE_DUTY_CYCLE*0.7);
+                    set_motor(R_MOTOR,(int)BASE_DUTY_CYCLE*0.7);
+                    take_picture();
+                    h_data = getHorizontalData(ROW);
+                    previous_h_data = h_data;
+                }
+                
+                //Tries to get track slightly ahead.
+                h_data = getHorizontalData(ROW-20);
+                while(h_data.white_pixels1 < MIN_H_TRACK_WID){
+                    //Turns left until finding a new track
+                    set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                    set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                    take_picture();
+                    h_data = getHorizontalData(ROW-20);
+                    usleep(100000);
+                }
+                followTrack(h_data);
+                previous_h_data = h_data;
+            }
+            else if(h_data.total_white_pixels >= PASSAGE){
+                //Tries to get track ahead.
+                previous_h_data = h_data;
+                h_data          = getHorizontalData(ROW_AHEAD);
+                if (h_data.white_pixels1 >= MIN_H_TRACK_WID){
                     followTrack(h_data);
                     previous_h_data = h_data;
                 }
-                else if(h_data.total_white_pixels >= PASSAGE){
-                    //Tries to get track ahead.
-                    previous_h_data = h_data;
-                    h_data          = getHorizontalData(ROW_AHEAD);
-                    if (h_data.white_pixels1 >= MIN_H_TRACK_WID){
-                        followTrack(h_data);
-                        previous_h_data = h_data;
-                    }
-                    else{
-                        set_motor(L_MOTOR,0);
-                        set_motor(R_MOTOR,0);
-                        int pix_on_left  = verticalWhitePix(0);
-                        int pix_on_right = verticalWhitePix(PIC_WIDTH-1);
-                        if (pix_on_right >= MIN_V_TRACK_WID && pix_on_left >= MIN_V_TRACK_WID){
-                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        if (pix_on_right >= MIN_V_TRACK_WID){
-                            set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        else if (pix_on_left >= MIN_V_TRACK_WID){
-                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                    }
-                }
-                else if(h_data.white_pixels1 >= MIN_H_TRACK_WID){
-                    //Follow the detected track.
-                    followTrack(h_data);
-                    previous_h_data = h_data;
-                }
-                else { //h_data.white_pixels1 < MIN_H_TRACK_WID
+                else{
                     set_motor(L_MOTOR,0);
                     set_motor(R_MOTOR,0);
-
                     int pix_on_left  = verticalWhitePix(0);
                     int pix_on_right = verticalWhitePix(PIC_WIDTH-1);
-                    
-                    while(h_data.white_pixels1 < MIN_H_TRACK_WID || abs(h_data.error1) > 100){
-                        //Turns to some direction until finding a track and having it on the central area of the image.
-                        //Note: try different values for the second condition if robot is turning past the track or stops turning before it is centered.
-                        
-                        //If robot turns to the wrong side in a corner, there might be a problem with the results from verticalWhitePix().
-                        //With the camera too close to the ground, the images are too "zoomed" and vertical scans become more unreliable.
-                        //Try removing the block of ifs that relies on vertical scans if it is not working well.
-                        if(previous_h_data.error1 > 0 && pix_on_left < MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
-                            //Guaranteed to be on the right.
-                            set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        else if(previous_h_data.error1 < 0 && pix_on_left >= MIN_V_TRACK_WID && pix_on_right < MIN_V_TRACK_WID){
-                            //Guaranteed to be on the left.
-                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        else if(previous_h_data.error1 < 0 && pix_on_left < MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
-                            //Likely to be on the right.
-                            set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        else if(previous_h_data.error1 > 0 && pix_on_left >= MIN_V_TRACK_WID && pix_on_right < MIN_V_TRACK_WID){
-                            //Likely to be on the left.
-                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        //Try this if the robot is turning to the wrong direction on the last transversal.
-                        else if(pix_on_left >= MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
-                            //Possibly the second transversal.
-                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            usleep(100000);
-                        }
-                        //This part doesn't rely on vertical scans. Try using only this on Monday.
-                        else {
-                            //Ideally, it shouldn't come to this in corners: the vertical scans should be able to
-                            //tell the direction to follow...
-                            //It's hard to tell which way to go in this case, it will follow previous_h_data.
-                            if(previous_h_data.error1 < 0){
-                                //Track was on the left side before it was lost.
-                                set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                                set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
-                            }
-                            else if(previous_h_data.error1 > 0){
-                                //Track was on the right side before it was lost.
-                                set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
-                                set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            }
-                            else {
-                                //Inconclusive, go back. Highly unlikely to happen.
-                                set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
-                                set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
-                            }
-                        }
-                        take_picture();
-                        h_data = getHorizontalData(ROW);
+                    if (pix_on_right >= MIN_V_TRACK_WID && pix_on_left >= MIN_V_TRACK_WID){
+                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        usleep(100000);
                     }
-                    //Back on track, supposedly...
-                    followTrack(h_data);
-                    previous_h_data = h_data;
+                    if (pix_on_right >= MIN_V_TRACK_WID){
+                        set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    else if (pix_on_left >= MIN_V_TRACK_WID){
+                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
                 }
+            }
+            else if(h_data.white_pixels1 >= MIN_H_TRACK_WID){
+                //Follow the detected track.
+                followTrack(h_data);
+                previous_h_data = h_data;
+            }
+            else { //h_data.white_pixels1 < MIN_H_TRACK_WID
+                set_motor(L_MOTOR,0);
+                set_motor(R_MOTOR,0);
+            
+                int pix_on_left  = verticalWhitePix(0);
+                int pix_on_right = verticalWhitePix(PIC_WIDTH-1);
+                
+                while(h_data.white_pixels1 < MIN_H_TRACK_WID || abs(h_data.error1) > 100){
+                    //Turns to some direction until finding a track and having it on the central area of the image.
+                    //Note: try different values for the second condition if robot is turning past the track or stops turning before it is centered.
+                    
+                    //If robot turns to the wrong side in a corner, there might be a problem with the results from verticalWhitePix().
+                    //With the camera too close to the ground, the images are too "zoomed" and vertical scans become more unreliable.
+                    //Try removing the block of ifs that relies on vertical scans if it is not working well.
+                    if(previous_h_data.error1 > 0 && pix_on_left < MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
+                        //Guaranteed to be on the right.
+                        set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    else if(previous_h_data.error1 < 0 && pix_on_left >= MIN_V_TRACK_WID && pix_on_right < MIN_V_TRACK_WID){
+                        //Guaranteed to be on the left.
+                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    else if(previous_h_data.error1 < 0 && pix_on_left < MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
+                        //Likely to be on the right.
+                        set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    else if(previous_h_data.error1 > 0 && pix_on_left >= MIN_V_TRACK_WID && pix_on_right < MIN_V_TRACK_WID){
+                        //Likely to be on the left.
+                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    //Try this if the robot is turning to the wrong direction on the last transversal.
+                    else if(pix_on_left >= MIN_V_TRACK_WID && pix_on_right >= MIN_V_TRACK_WID){
+                        //Possibly the second transversal.
+                        set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        //usleep(75000);
+                    }
+                    //This part doesn't rely on vertical scans. Try using only this on Monday.
+                    else {
+                        //Ideally, it shouldn't come to this in corners: the vertical scans should be able to
+                        //tell the direction to follow...
+                        //It's hard to tell which way to go in this case, it will follow previous_h_data.
+                        if(previous_h_data.error1 < 0){
+                            //Track was on the left side before it was lost.
+                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                            set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
+                        }
+                        else if(previous_h_data.error1 > 0){
+                            //Track was on the right side before it was lost.
+                            set_motor(L_MOTOR,(int) BASE_DUTY_CYCLE);
+                            set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        }
+                        else {
+                            //Inconclusive, go back. Highly unlikely to happen.
+                            set_motor(L_MOTOR,(int)-BASE_DUTY_CYCLE);
+                            set_motor(R_MOTOR,(int)-BASE_DUTY_CYCLE);
+                        }
+                    }
+                    take_picture();
+                    h_data = getHorizontalData(ROW);
+                }
+                //Back on track, supposedly...
+                followTrack(h_data);
+                previous_h_data = h_data;
             }
         }
     }
@@ -494,73 +544,83 @@ int main(){
     //==== QUADRANT 4 =============================================================================
     while(quad == 4){
         //Quadrant 4
-        //Goal: pass through the walled maze.
+        //Goal: finish the walled maze.
         
-        front_reading = readSensor(F_SENSOR, 1).average;
-        left_reading  = readSensor(L_SENSOR, 1).average;
-        right_reading = readSensor(R_SENSOR, 1).average;
-        
-        /*
-        bool turning = false;
-        
-        if (isRedLine()) {
-            if (front_reading > 80) {
-                set_motor(R_MOTOR, 0);
-                set_motor(L_MOTOR, 0);
+        take_picture();
+        if (isRedLine()){
+            set_motor(L_MOTOR,0);
+            set_motor(R_MOTOR,0);
+            while(readAnalogSensor(F_SENSOR, 1).average < GATE2_DISTANCE) {
+                //Wait for the gate to close.
+                //=== Do nothing ===
             }
-            else {
-                set_motor(R_MOTOR, 40);
-                set_motor(L_MOTOR, 40);
+            while(readAnalogSensor(F_SENSOR, 1).average >= GATE2_DISTANCE) {
+                //After the gate is closed, wait for it to open again.
+                //=== Do nothing ===
             }
+            usleep(GATE_TIMER); //Wait just a little more to avoid a collision with a partially open gate.
         }
         
-        while(turning == true and front_reading > 200){
-            if (front_reading > 200 and left_reading > right_reading) {
-                set_motor(R_MOTOR, 33);
-                set_motor(L_MOTOR, -33);
-                sleep1(TURNTIME_SEC, TURNTIME_MICRO);
-                set_motor(R_MOTOR, 0);
-                set_motor(L_MOTOR, 0);
+        front_reading = readAnalogSensor(F_SENSOR, 1).average;
+        if (front_reading < MIN_DISTANCE){
+            //No wall ahead. Advance.
+            if (leftWall() && rightWall()){
+                //Sets error to zero. Kd would be a good thing to avoid sudden changes...
+                q4Control(0);
             }
-            else if (front_reading > 200 and left_reading < right_reading) {
-                set_motor(R_MOTOR, -33);
-                set_motor(L_MOTOR, 33);
-                sleep1(TURNTIME_SEC, TURNTIME_MICRO);
-                set_motor(R_MOTOR, 0);
-                set_motor(L_MOTOR, 0);
+            else if (!leftWall() && !rightWall()){
+                //Sets error a bit to the right to make robot follow the right wall in passages.
+                q4Control(25);
             }
-        }
-        while(turning == false and front_reading < 200){
-            else if (front_reading < 400 and left_reading > right_reading) {
-                set_motor(R_MOTOR, 40);
-                set_motor(L_MOTOR, 35);
-                sleep1(TURNTIME_SEC, TURNTIME_MICRO);
-                set_motor(R_MOTOR, 0);
-                set_motor(L_MOTOR, 0);
+            else if (leftWall() && !rightWall()){
+                q4Control(50);
             }
-            else if (front_reading < 400 and left_reading < right_reading) {
-                set_motor(R_MOTOR, 35);
-                set_motor(L_MOTOR, 40);
-                sleep1(TURNTIME_SEC, TURNTIME_MICRO);
-                set_motor(R_MOTOR, 0);
-                set_motor(L_MOTOR, 0);
+            else if (!leftWall() && rightWall()){
+                q4Control(-50);
             }
         }
-    */
-    
+        else{
+            //Front wall is close.
+            set_motor(L_MOTOR,0);
+            set_motor(R_MOTOR,0);
+            
+            while (front_reading > MIN_DISTANCE){
+                if(leftWall() && rightWall()){
+                    //Slowly go back
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                }
+                else if (!leftWall() && !rightWall()){
+                    //Slowly go back
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                }
+                else if (leftWall() && !rightWall()){
+                    //Go back turning the front to the right
+                    set_motor(L_MOTOR, 0);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                }
+                else if (!leftWall() && rightWall()){
+                    //Go back turning the front to the left
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(R_MOTOR, 0);
+                }
+                front_reading = readAnalogSensor(F_SENSOR, 1).average;
+            }
+        }
     }
     
     while(quad == -1){
         //Use this loop for testing stuff.
-        char pic_name[] = "p";
-        take_picture();
-        save_picture(pic_name);
-        break;
+        //char pic_name[] = "p";
+        //take_picture();
+        //save_picture(pic_name);
+        //break;
         
         while(true){
-            front_reading = readSensor(F_SENSOR, 1).average;
-            left_reading  = readSensor(L_SENSOR, 1).average;
-            right_reading = readSensor(R_SENSOR, 1).average;
+            front_reading     = readAnalogSensor(F_SENSOR, 1).average;
+            int left_reading  = read_digital(L_SENSOR);
+            int right_reading = read_digital(R_SENSOR);
             
             printf("F: %d, L:%d, R:%d\n", front_reading, left_reading, right_reading);
         }
