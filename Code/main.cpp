@@ -58,7 +58,7 @@ char       PLEASE[]       = "Please";        //If set to "const", the compiler w
 char       IP[]           = "130.195.6.196"; //If set to "const", the compiler will complain...
 const int  PORT           = 1024;
 const int  GATE_TIMER     = 1500000; //Microseconds
-const int  GATE2_DISTANCE = 200; //#todo find out what value to use.
+//const int  GATE2_DISTANCE = 200; //#todo find out what value to use.
 
 //Fields
 int    lum_threshold;
@@ -387,13 +387,11 @@ int main(){
             take_picture(); //Take a picture and loads it to the memory.
             
             red_line = isRedLine();
-            if (red_line && (leftWall() || rightWall())){
+            if (red_line && (leftWall() || rightWall())){ //Remove the walls conditions if you have problems.
                 //Robot is reaching Quadrant 4.
                 while(red_line){
                     //Wait for it to cross the red line before switching to quad 4 loop.
-                    if (leftWall() && rightWall())
-                        q4Control(0);
-                    else if (leftWall() && !rightWall())
+                    if (leftWall() && !rightWall())
                         q4Control(50);
                     else if (!leftWall() && rightWall())
                         q4Control(-50);
@@ -514,7 +512,7 @@ int main(){
                         set_motor(R_MOTOR,(int) BASE_DUTY_CYCLE);
                         //usleep(75000);
                     }
-                    //This part doesn't rely on vertical scans. Try using only this on Monday.
+                    //This part doesn't rely on vertical scans.
                     else {
                         //Ideally, it shouldn't come to this in corners: the vertical scans should be able to
                         //tell the direction to follow...
@@ -547,9 +545,14 @@ int main(){
     
     //==== QUADRANT 4 =============================================================================
     bool turn_left         = false;
-    int  min_distance      = 200; //Change depending on the algorithm being tested.
+    int  min_distance      = 200;
     int  bigger_distance   = 155; //If reading is lower than this, breaks turning loop.
     int  internal_distance = 200; //If reading is lower than this, increases turning speed. (helps with U-turn)
+    int  gate_loops        = 6;   //Each unit makes it sleep for 250000us (6 = 1,5s).
+    int  gate_sleep        = 250000; 
+    int  gate_distance     = 200; //Higher values requires the robot to be closer.
+    int  turn_sleep        = 100000; //Microseconds, used when it doesn't detect walls or when it detects both.
+    
     bool left_wall;
     bool right_wall;
     while(quad == 4){
@@ -558,9 +561,9 @@ int main(){
         
         take_picture();
         if (isRedLine()){
-            for (int i = 0; i < 6; i++){ //Adjust size to make the robot stop close to the gate.
+            for (int i = 0; i < gate_loops; i++){ //Adjust size to make the robot stop close to the gate.
                 //Advance just a little bit and stop before the gate.
-                if(read_analog(F_SENSOR) < GATE2_DISTANCE){
+                if(read_analog(F_SENSOR) < gate_distance){
                     //Failsafe
                     break;
                 }
@@ -578,17 +581,17 @@ int main(){
                     set_motor(L_MOTOR,35);
                     set_motor(R_MOTOR,35);
                 }
-                usleep(250000);
+                usleep(gate_sleep);
             }
             
             //Robot should be able to detect the gate now.
             set_motor(L_MOTOR,0);
             set_motor(R_MOTOR,0);   
-            while(read_analog(F_SENSOR) < GATE2_DISTANCE) {
+            while(read_analog(F_SENSOR) < gate_distance) {
                 //Waits for the gate to close (if it is not closed already).
                 //=== Do nothing ===
             }
-            while(read_analog(F_SENSOR) >= GATE2_DISTANCE) {
+            while(read_analog(F_SENSOR) >= gate_distance) {
                 //Now it waits for it to open again.
                 //=== Do nothing ===
             }
@@ -667,7 +670,7 @@ int main(){
                         set_motor(L_MOTOR,0);
                         set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
                     }
-                    usleep(100000);
+                    usleep(turn_sleep);
                     front_reading = read_analog(F_SENSOR);
                 }
             }
@@ -676,28 +679,44 @@ int main(){
             //set_motor(L_MOTOR,0);
             //set_motor(R_MOTOR,0);
             //
+            //int alternate = 0;
             //while (front_reading > min_distance){
-            //    if(leftWall() && rightWall()){
+            //    left_wall  = leftWall();
+            //    right_wall = rightWall();
+            //    if(left_wall && right_wall){
             //        //Slowly go back
             //        set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
             //        set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
             //    }
-            //    else if (!leftWall() && !rightWall()){
-            //        //Slowly go back
-            //        set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
-            //        set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //    else if (!left_wall && !right_wall){
+            //        //Slowly go back alternating the direction.
+            //        if (alternate == 1){ //Turn front to right.
+            //            set_motor(L_MOTOR,0);
+            //            set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //            alternate = 0;
+            //        }
+            //        else if (alternate == -1){ //Turn front to left.
+            //            set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,0);
+            //            alternate = 1;
+            //        }
+            //        else{ //Just go back.
+            //            set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //            alternate = -1;
+            //        }
             //    }
-            //    else if (leftWall() && !rightWall()){
+            //    else if (left_wall && !right_wall){
             //        //Go back turning the front to the right
             //        set_motor(L_MOTOR, 0);
             //        set_motor(R_MOTOR,-BASE_DUTY_CYCLE-10);
-            //        usleep(150000);
+            //        usleep(turn_sleep);
             //    }
-            //    else if (!leftWall() && rightWall()){
+            //    else if (!left_wall && right_wall){
             //        //Go back turning the front to the left
             //        set_motor(L_MOTOR,-BASE_DUTY_CYCLE-10);
             //        set_motor(R_MOTOR, 0);
-            //        usleep(150000);
+            //        usleep(turn_sleep);
             //    }
             //    front_reading = read_analog(F_SENSOR);
             //}
