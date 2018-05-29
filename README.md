@@ -42,6 +42,7 @@ Our project is organized according to the schedule bellow:
 - Thomas wrote a code to test the measures made by the sensors.
 - Charlotte fixed a problem with the right sensor and changed the position of the camera—it was too low before.
 - Matthew and Tom started working on the code for quadrant 4.
+- Everyone was present to the fourth lab session of the project.
 
 **Week 5**
 - Charlotte placed a switch on the robot and reassembled it to improve its design.
