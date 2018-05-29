@@ -13,7 +13,7 @@ Team Members:
 
 Our project is organized according to the schedule bellow:
 
-[![Project Schedule](https://github.com/dolfinn1212/starsandstripes/blob/master/Other%20files/ProjectSchedule.png)](https://raw.githubusercontent.com/dolfinn1212/starsandstripes/master/Other%20files/ProjectSchedule.png)
+[![Project Schedule](https://github.com/dolfinn1212/starsandstripes/blob/master/Other%20files/ProjectSchedule.PNG)](https://raw.githubusercontent.com/dolfinn1212/starsandstripes/master/Other%20files/ProjectSchedule.PNG)
 
 **Week 1**
 - Everyone was present to the first lab session of the project.
