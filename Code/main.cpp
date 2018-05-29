@@ -48,7 +48,10 @@ const int BLUE_THRESHOLD  = 100; //Value for which the component of a pixel will
 const int MIN_RED_COUNTER = 70;  //Number of reddish pixels a line must have to be considered red.
 
 //Distance control constants
-const int MIN_DISTANCE  = 210; //#todo Test and find a minimum distance to use in Q4. 250 is approx. 10cm.
+const int MIN_DISTANCE   = 210; //#todo Test and find a minimum distance to use in Q4. 250 is approx. 10cm.
+const int TURN_TIME_SEC  = 1;
+const int TURN_TIME_MSEC = 500000;
+const int TURN_TIME_TOT  = 1500000; //Microseconds
 
 //Gates and Network constants
 char       PLEASE[]       = "Please";        //If set to "const", the compiler will complain...
@@ -545,24 +548,25 @@ int main(){
     while(quad == 4){
         //Quadrant 4
         //Goal: finish the walled maze.
+        int min_distance = 210; //Change depending on the algorithm being tested.
         
         take_picture();
         if (isRedLine()){
             set_motor(L_MOTOR,0);
             set_motor(R_MOTOR,0);
-            while(readAnalogSensor(F_SENSOR, 1).average < GATE2_DISTANCE) {
+            while(readAnalogSensor(F_SENSOR, 5).average < GATE2_DISTANCE) {
                 //Wait for the gate to close.
                 //=== Do nothing ===
             }
-            while(readAnalogSensor(F_SENSOR, 1).average >= GATE2_DISTANCE) {
+            while(readAnalogSensor(F_SENSOR, 5).average >= GATE2_DISTANCE) {
                 //After the gate is closed, wait for it to open again.
                 //=== Do nothing ===
             }
             usleep(GATE_TIMER); //Wait just a little more to avoid a collision with a partially open gate.
         }
         
-        front_reading = readAnalogSensor(F_SENSOR, 1).average;
-        if (front_reading < MIN_DISTANCE){
+        front_reading = read_analog(F_SENSOR);
+        if (front_reading < min_distance){
             //No wall ahead. Advance.
             if (leftWall() && rightWall()){
                 //Sets error to zero. Kd would be a good thing to avoid sudden changes...
@@ -581,32 +585,206 @@ int main(){
         }
         else{
             //Front wall is close.
+            
+            //==== Q4 Algorithm 1 turning backwards =============================================================
             set_motor(L_MOTOR,0);
             set_motor(R_MOTOR,0);
             
-            while (front_reading > MIN_DISTANCE){
+            while (front_reading > min_distance){
                 if(leftWall() && rightWall()){
                     //Slowly go back
-                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
-                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
                 }
                 else if (!leftWall() && !rightWall()){
                     //Slowly go back
-                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
-                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
                 }
                 else if (leftWall() && !rightWall()){
                     //Go back turning the front to the right
                     set_motor(L_MOTOR, 0);
-                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(R_MOTOR,-BASE_DUTY_CYCLE-10);
+                    usleep(100000);
                 }
                 else if (!leftWall() && rightWall()){
                     //Go back turning the front to the left
-                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-30);
+                    set_motor(L_MOTOR,-BASE_DUTY_CYCLE-10);
                     set_motor(R_MOTOR, 0);
+                    usleep(100000);
                 }
-                front_reading = readAnalogSensor(F_SENSOR, 1).average;
+                front_reading = read_analog(F_SENSOR);
             }
+            
+            ////==== Q4 Algorithm 1 turning forwards =============================================================
+            //set_motor(L_MOTOR,0);
+            //set_motor(R_MOTOR,0);
+            //
+            //while (front_reading > min_distance){
+            //    if(leftWall() && rightWall()){
+            //        //Slowly go back
+            //        set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //        set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //    }
+            //    else if (!leftWall() && !rightWall()){
+            //        //Slowly go back
+            //        set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //        set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //    }
+            //    else if (leftWall() && !rightWall()){
+            //        //Go back turning the front to the right
+            //        set_motor(L_MOTOR, BASE_DUTY_CYCLE+10);
+            //        set_motor(R_MOTOR, 0);
+            //        usleep(100000);
+            //    }
+            //    else if (!leftWall() && rightWall()){
+            //        //Go back turning the front to the left
+            //        set_motor(L_MOTOR, 0);
+            //        set_motor(R_MOTOR, BASE_DUTY_CYCLE+10);
+            //        usleep(100000);
+            //    }
+            //    front_reading = read_analog(F_SENSOR);
+            //}
+            //
+            ////==== Q4 Algorithm 2 ===============================================================================
+            //set_motor(L_MOTOR,0);
+            //set_motor(R_MOTOR,0);
+            //
+            ////The internal distance corresponds to the minimum distance that allows the robot to
+            ////safely make the turns, and the bigger distance is the value that guarantees the robot
+            ////is not seeing walls ahead of it, i.e., it completed the turn.
+            //int bigger_distance   = 160;
+            //int internal_distance = 200; //Set as min_distance <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            //if (leftWall() && !rightWall()){
+            //    //Turns to the right until front sensor stops detecting walls.
+            //    while (front_reading > bigger_distance){ //#todo find a good value for this bigger distance
+            //        int left_dc  = MIN_DUTY_CYCLE; //#todo check if it is better to rotate
+            //        int right_dc = 0;              //#todo check if it is better to rotate
+            //        if (front_reading < internal_distance){
+            //            left_dc  += 25; //#todo test
+            //            right_dc += 25; //#todo test
+            //            //Perhaps you should add a value that is proportional to the
+            //            //difference in the distance? i.e., proportional to (current reading - internal_distance)
+            //        }
+            //        set_motor(L_MOTOR,left_dc);
+            //        set_motor(R_MOTOR,right_dc);
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //else if (!leftWall() && rightWall()){
+            //    //Turns to the left until front sensor stops detecting walls.
+            //    while (front_reading > bigger_distance){ //#todo find a good value for this bigger distance
+            //        int left_dc  = 0; //#todo check if it is better to rotate
+            //        int right_dc = MIN_DUTY_CYCLE;              //#todo check if it is better to rotate
+            //        if (front_reading < internal_distance){
+            //            left_dc  += 25; //#todo test
+            //            right_dc += 25; //#todo test
+            //            //Perhaps you should add a value that is proportional to the
+            //            //difference in the distance? i.e., proportional to (current reading - internal_distance)
+            //        } 
+            //        set_motor(L_MOTOR,left_dc);
+            //        set_motor(R_MOTOR,right_dc);
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //else {
+            //    while (front_reading > min_distance){
+            //        if(leftWall() && rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //        }
+            //        else if (!leftWall() && !rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-BASE_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-BASE_DUTY_CYCLE);
+            //        }
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //
+            ////==== Q4 Algorithm 3 ===============================================================================
+            //set_motor(L_MOTOR,0);
+            //set_motor(R_MOTOR,0);
+            //
+            ////The min_distance used in this case must be one that allows the robot to be in the
+            ////exact position where it can rotate 90 degrees, advance, stops, and turn 90 degrees again if required.
+            //
+            ////Try 250 as min_distance <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            //
+            //if (leftWall() && !rightWall()){
+            //    set_motor(L_MOTOR, 33);
+            //    set_motor(R_MOTOR,-33);
+            //    usleep(TURN_TIME_TOT);
+            //}
+            //else if (!leftWall() && rightWall()){
+            //    set_motor(L_MOTOR,-33);
+            //    set_motor(R_MOTOR, 33);
+            //    usleep(TURN_TIME_TOT);
+            //}
+            //else {
+            //    //Not sure about what to do in these cases yet for this algorithm.
+            //    while (front_reading > min_distance){
+            //        if(leftWall() && rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-MIN_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-MIN_DUTY_CYCLE);
+            //        }
+            //        else if (!leftWall() && !rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-MIN_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-MIN_DUTY_CYCLE);
+            //        }
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //
+            ////==== Q4 Algorithm 4 ===============================================================================
+            //set_motor(L_MOTOR,0);
+            //set_motor(R_MOTOR,0);
+            //
+            ////The min_distance used in this case must be one that allows the robot to be in the
+            ////exact position where it can rotate 90 degrees, advance, stops, and turn 90 degrees again if required.
+            //
+            ////The internal_distance used for the loop condition must be a value that is just bellow the distance 
+            ////to the wall on the other side of a U-turn.
+            //
+            ////Try 250 as min_distance <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            //
+            //int internal_distance = 180;
+            //if (leftWall() && !rightWall()){
+            //    while(front_reading > internal_distance){
+            //        set_motor(L_MOTOR, MIN_DUTY_CYCLE);
+            //        set_motor(R_MOTOR,-MIN_DUTY_CYCLE);
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //else if (!leftWall() && rightWall()){
+            //    while(front_reading > internal_distance){
+            //        set_motor(L_MOTOR,-MIN_DUTY_CYCLE);
+            //        set_motor(R_MOTOR, MIN_DUTY_CYCLE);
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            //else {
+            //    //Not sure about what to do in these cases yet for this algorithm.
+            //    while (front_reading > min_distance){
+            //        if(leftWall() && rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-MIN_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-MIN_DUTY_CYCLE);
+            //        }
+            //        else if (!leftWall() && !rightWall()){
+            //            //Slowly go back
+            //            set_motor(L_MOTOR,-MIN_DUTY_CYCLE);
+            //            set_motor(R_MOTOR,-MIN_DUTY_CYCLE);
+            //        }
+            //        front_reading = read_analog(F_SENSOR);
+            //    }
+            //}
+            
+            
+            
         }
     }
     
