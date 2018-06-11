@@ -74,6 +74,24 @@ struct ImageData{
     int    white_pixels2; //White pixels for a possible second track
 };
 
+//Reads left digital sensor and returns true if an obstacle is close.
+bool leftWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(L_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
+
+//Reads right digital sensor and returns true if an obstacle is close.
+bool rightWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(R_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
+
 //Structure to store information about distance sensor readings.
 struct Readings{
     double average;
@@ -100,23 +118,7 @@ void setLumThreshold(){
     }
 }
 
-//Reads left digital sensor and returns true if an obstacle is close.
-bool leftWall(){
-    bool is_close        = false;
-    int  digital_reading = read_digital(L_SENSOR);
-    if (digital_reading == 0)
-        is_close = true;
-    return is_close;
-}
 
-//Reads right digital sensor and returns true if an obstacle is close.
-bool rightWall(){
-    bool is_close        = false;
-    int  digital_reading = read_digital(R_SENSOR);
-    if (digital_reading == 0)
-        is_close = true;
-    return is_close;
-}
 
 //Reads the given analog sensor a number of times and returns the average, max and min reading.
 Readings readAnalogSensor(int sensor, int number_of_readings){
