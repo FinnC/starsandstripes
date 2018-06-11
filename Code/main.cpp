@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-//#include <time.h>
 #include "E101.h"
 
 const int INITIAL_QUADRANT = 1; //Use this to skip quadrants when testing.
@@ -48,7 +47,7 @@ const int BLUE_THRESHOLD  = 100; //Value for which the component of a pixel will
 const int MIN_RED_COUNTER = 70;  //Number of reddish pixels a line must have to be considered red.
 
 //Distance control constants
-const int MIN_DISTANCE   = 210; //#todo Test and find a minimum distance to use in Q4. 250 is approx. 10cm.
+const int MIN_DISTANCE   = 250; //#todo Test and find a minimum distance to use in Q4. 250 is approx. 10cm.
 const int TURN_TIME_SEC  = 1;
 const int TURN_TIME_MSEC = 500000;
 const int TURN_TIME_TOT  = 1500000; //Microseconds
@@ -73,24 +72,6 @@ struct ImageData{
     double error2;       //For a possible second track
     int    white_pixels2; //White pixels for a possible second track
 };
-
-//Reads left digital sensor and returns true if an obstacle is close.
-bool leftWall(){
-    bool is_close        = false;
-    int  digital_reading = read_digital(L_SENSOR);
-    if (digital_reading == 0)
-        is_close = true;
-    return is_close;
-}
-
-//Reads right digital sensor and returns true if an obstacle is close.
-bool rightWall(){
-    bool is_close        = false;
-    int  digital_reading = read_digital(R_SENSOR);
-    if (digital_reading == 0)
-        is_close = true;
-    return is_close;
-}
 
 //Structure to store information about distance sensor readings.
 struct Readings{
@@ -118,7 +99,23 @@ void setLumThreshold(){
     }
 }
 
+//Reads left digital sensor and returns true if an obstacle is close.
+bool leftWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(L_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
 
+//Reads right digital sensor and returns true if an obstacle is close.
+bool rightWall(){
+    bool is_close        = false;
+    int  digital_reading = read_digital(R_SENSOR);
+    if (digital_reading == 0)
+        is_close = true;
+    return is_close;
+}
 
 //Reads the given analog sensor a number of times and returns the average, max and min reading.
 Readings readAnalogSensor(int sensor, int number_of_readings){
@@ -240,7 +237,7 @@ bool isRedLine(){
             blue_value < BLUE_THRESHOLD)
             red_counter++;
     }
-    if (red_counter >= MIN_RED_COUNTER) //If the picture is detected as being red, it will return true
+    if (red_counter >= MIN_RED_COUNTER)
         result = true;
     return result;
 }
@@ -549,11 +546,11 @@ int main(){
     bool turn_left         = false;
     int  min_distance      = 200;
     int  bigger_distance   = 155; //If reading is lower than this, breaks turning loop.
-    int  internal_distance = 200; //If reading is lower than this, increases turning speed. (helps with U-turn)
-    int  gate_loops        = 6;   //Each unit makes it sleep for 250000us (6 = 1,5s).
-    int  gate_sleep        = 250000; 
-    int  gate_distance     = 200; //Higher values requires the robot to be closer.
-    int  turn_sleep        = 100000; //Microseconds, used when it doesn't detect walls or when it detects both.
+    int  internal_distance = 220; //If reading is lower than this, increases turning speed. (helps with U-turn)
+    //int  gate_loops        = 6;   //Each unit makes it sleep for 250000us (6 = 1,5s).
+    int  gate_sleep        = 256666; 
+    int  gate_distance     = 180; //Higher values requires the robot to be closer.
+    int  turn_sleep        = 150000; //Microseconds, used when it doesn't detect walls or when it detects both.
     
     bool left_wall;
     bool right_wall;
@@ -563,28 +560,78 @@ int main(){
         
         take_picture();
         if (isRedLine()){
-            for (int i = 0; i < gate_loops; i++){ //Adjust size to make the robot stop close to the gate.
-                //Advance just a little bit and stop before the gate.
-                if(read_analog(F_SENSOR) < gate_distance){
-                    //Failsafe
-                    break;
-                }
-                left_wall  = leftWall();
-                right_wall = rightWall();
-                if (left_wall && !right_wall){ //Right
-                    set_motor(L_MOTOR,40);
-                    set_motor(R_MOTOR,30);
-                }
-                else if(!left_wall && right_wall){ //Left
-                    set_motor(L_MOTOR,30);
-                    set_motor(R_MOTOR,40);
-                }
-                else{ //Straight
-                    set_motor(L_MOTOR,35);
-                    set_motor(R_MOTOR,35);
-                }
-                usleep(gate_sleep);
+            //for (int i = 0; i < gate_loops; i++){ //Adjust size to make the robot stop close to the gate.
+            //    //Advance just a little bit and stop before the gate.
+            //    if(read_analog(F_SENSOR) < gate_distance){
+            //        //Failsafe
+            //        break;
+            //    }
+            //    left_wall  = leftWall();
+            //    right_wall = rightWall();
+            //    if (left_wall && !right_wall){ //Right
+            //        set_motor(L_MOTOR,40);
+            //        set_motor(R_MOTOR,30);
+            //    }
+            //    else if(!left_wall && right_wall){ //Left
+            //        set_motor(L_MOTOR,30);
+            //        set_motor(R_MOTOR,40);
+            //    }
+            //    else{ //Straight
+            //        set_motor(L_MOTOR,35);
+            //        set_motor(R_MOTOR,35);
+            //    }
+            //    sleep1(0,gate_sleep);
+            //}
+            
+            
+            left_wall  = leftWall();
+            right_wall = rightWall();
+            if (left_wall && !right_wall){ //Right
+                set_motor(L_MOTOR,35);
+                set_motor(R_MOTOR,25);
             }
+            else if(!left_wall && right_wall){ //Left
+                set_motor(L_MOTOR,25);
+                set_motor(R_MOTOR,35);
+            }
+            else{ //Straight
+                set_motor(L_MOTOR,35);
+                set_motor(R_MOTOR,35);
+            }
+            usleep(gate_sleep);
+            
+            left_wall  = leftWall();
+            right_wall = rightWall();
+            if (left_wall && !right_wall){ //Right
+                set_motor(L_MOTOR,33);
+                set_motor(R_MOTOR,26);
+            }
+            else if(!left_wall && right_wall){ //Left
+                set_motor(L_MOTOR,26);
+                set_motor(R_MOTOR,36);
+            }
+            else{ //Straight
+                set_motor(L_MOTOR,35);
+                set_motor(R_MOTOR,35);
+            }
+            usleep(gate_sleep);
+            
+            left_wall  = leftWall();
+            right_wall = rightWall();
+            if (left_wall && !right_wall){ //Right
+                set_motor(L_MOTOR,33);
+                set_motor(R_MOTOR,26);
+            }
+            else if(!left_wall && right_wall){ //Left
+                set_motor(L_MOTOR,26);
+                set_motor(R_MOTOR,36);
+            }
+            else{ //Straight
+                set_motor(L_MOTOR,35);
+                set_motor(R_MOTOR,35);
+            }
+            usleep(gate_sleep);
+
             
             //Robot should be able to detect the gate now.
             set_motor(L_MOTOR,0);
@@ -598,6 +645,7 @@ int main(){
                 //=== Do nothing ===
             }
             usleep(GATE_TIMER); //Wait just a little more to avoid a collision with a partially open gate.
+            turn_left = true;
         }
         
         front_reading = read_analog(F_SENSOR);
@@ -676,8 +724,8 @@ int main(){
                     front_reading = read_analog(F_SENSOR);
                 }
             }
-            
-            ////==== Q4 Algorithm 1 turning backwards =============================================================
+            //
+            //==== Q4 Algorithm 1 turning backwards =============================================================
             //set_motor(L_MOTOR,0);
             //set_motor(R_MOTOR,0);
             //
