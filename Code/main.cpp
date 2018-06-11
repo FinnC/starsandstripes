@@ -238,7 +238,7 @@ bool isRedLine(){
             blue_value < BLUE_THRESHOLD)
             red_counter++;
     }
-    if (red_counter >= MIN_RED_COUNTER)
+    if (red_counter >= MIN_RED_COUNTER) //If the picture is detected as being red, it will return true
         result = true;
     return result;
 }
